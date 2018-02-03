@@ -117,7 +117,8 @@ problem <- Problem(objective)
 result <- solve(problem)
 
 bo <- result$getValue(betaHat)
-round(1000*bo)/1000
+LS <- round(1000*bo)/1000
+LS
 round(1000*b)/1000
 ```
 
@@ -133,7 +134,9 @@ problem <- Problem(objective)
 result <- solve(problem)
 
 bo <- result$getValue(betaHat)
-round(1000*bo)/1000
+BS <-round(1000*bo)/1000
+BS
+BS <- rbind(BS, NA, NA, NA, NA, NA, NA)
 ```
 
 
@@ -150,8 +153,9 @@ result <- solve(problem)
 
 d <- sqrt(diag(var(Xtrain)))
 bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
-round(1000*bl)/1000
-mean(Ytrain)
+Lasso <- round(1000*bl)/1000
+Lasso <- rbind(round(1000*mean(Ytrain))/1000, Lasso)
+Lasso
 ```
 
 Our result correspond indeed to the results of the Table.
@@ -177,7 +181,9 @@ Does not work.
 
 ```{r}
 br <- solve(t(Xtrain) %*% Xtrain + diag(x = 24, ncol(Xtrain)), t(Xtrain) %*% (Ytrain - mean(Ytrain)))
-round(1000*br)/1000
+Ridge <- round(1000*br)/1000
+Ridge <- rbind(round(1000*mean(Ytrain))/1000, Ridge)
+Ridge
 ```
 
 With the ridge you should always define your new 'Y' as centered.
