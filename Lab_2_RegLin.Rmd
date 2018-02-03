@@ -1,0 +1,261 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+The objectives of the lab The purpose of this lab is to reproduce tables from the third chapter of the book "Elements of Statistical Learning" from Hastie, Tibshirani and Friedman, as they are shown bellow.
+
+Ex. 1 — Tables 3.1 and 3.2 1. Prepare the data 
+
+a) Rawdataisavailableonline,downloaditfrommoodle(theData.txtﬁle)orfromthe web at http://statweb.stanford.edu/~tibs/ElemStatLearn.1stEd/datasets/ prostate.data. 
+
+```{r}
+data <- read.table("prostate.data.txt", sep = "") 
+```
+
+One value has to be corrected
+```{r}
+data[32,2] <- 3.8044
+```
+
+
+b) Extract and normalize the explicative variables
+
+```{r}
+X <- scale(data[,1:8])
+```
+
+c) Is it wise to normalize these data? 
+
+I would say it depends on what we want to do. For a multilinear regression, it might not be needed. But for interpretation purposes it might be clever (eg PCA)
+
+d) Extract the target variable 
+
+```{r}
+Y <- as.matrix(data[,"lpsa"])
+```
+
+
+e) Split the dataset into training and test data
+
+```{r}
+Xtrain <- X[data[["train"]], ] 
+Ytrain <- Y[data[["train"]],]
+Xtest <- X[!data[["train"]], ] 
+Ytest <- Y[!data[["train"]], ] 
+```
+
+2. Compute the correlations of predictors in the prostate cancer data as presented Table 3.1 
+
+```{r}
+Xtrainscale <- scale(Xtrain) 
+C <- cov(as.matrix(Xtrainscale)) 
+```
+
+3. Reproduce the results presented Table 3.1
+
+a) Compute the coeﬃcients of the linear regression model, without using the lm function (but you can use it validate your code)
+
+```{r}
+?solve
+```
+
+
+```{r}
+Xtrainone <- cbind(array(1, dim = c(nrow(Xtrain),1)), Xtrain) 
+b <- solve(t(Xtrainone) %*% Xtrainone, t(Xtrainone) %*% Ytrain)
+```
+
+b) Compute the prediction error
+
+```{r}
+Ypred <- Xtrainone %*% b 
+err <- Ytrain - Ypred
+```
+
+c) Compute the standard error for each variable
+
+```{r}
+?diag
+```
+
+
+```{r}
+sig2 <- (t(err) %*% err)/ (nrow(Xtrainone)- ncol(X)-1) 
+v <- diag(solve(t(Xtrainone) %*% Xtrainone)) 
+stderr <- sqrt(as.vector(sig2)) * sqrt(v) 
+```
+
+d) compute the Z score for each variable
+
+```{r}
+Z <- b/stderr
+```
+
+e) visualize the results and compare with table 3.2
+
+```{r}
+table32 <- cbind(b,stderr,Z)
+table32
+```
+
+Exercise 2
+
+1. Reproduce Table 3.3, at least the first four columns that is LS, Best Subset, Ridge and Lasso.
+
+```{r}
+library(CVXR)
+```
+
+
+```{r}
+# check if the package works
+p <- 9
+betaHat <- Variable(p)
+objective <- Minimize(sum((Ytrain  - Xtrainone %*% betaHat)^2))
+problem <- Problem(objective)
+result <- solve(problem)
+
+bo <- result$getValue(betaHat)
+round(1000*bo)/1000
+round(1000*b)/1000
+```
+
+We oberve indeed that we find the same results as previously with our "manual" method. b and bo are identical. Here with the CVXR package, the method consists of posing a problem and giving a minimization objective (here minimizing the sum of least square errors :the usual objective when building a linear regression). However this approach helps building other minimization problems like the methods we've seen in class.
+We find here the first column of table 3.3 : LS (least square)
+
+```{r}
+# Best Subset
+p <- 3
+betaHat <- Variable(p)
+objective <- Minimize(sum((Ytrain  - Xtrainone[,c(1,2,3)] %*% betaHat)^2))
+problem <- Problem(objective)
+result <- solve(problem)
+
+bo <- result$getValue(betaHat)
+round(1000*bo)/1000
+```
+
+
+```{r}
+# The Lasso
+p <- 9
+t <-  .7015
+ys = scale(Ytrain)
+betaHat <- Variable(p-1)
+objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
+constraint <- list(sum(abs(betaHat)) <=  t)
+problem <- Problem(objective, constraint)
+result <- solve(problem)
+
+d <- sqrt(diag(var(Xtrain)))
+bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+round(1000*bl)/1000
+mean(Ytrain)
+```
+
+Our result correspond indeed to the results of the Table.
+
+What have we done here?
+
+```{r}
+# The Ridge
+p <- 9
+lambda <- 24
+ys = scale(Ytrain)
+betaHat <- Variable(p-1)
+objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2) + lambda*sum((betaHat)^2))
+problem <- Problem(objective)
+result <- solve(problem)
+
+d <- sqrt(diag(var(Xtrain)))
+br <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+round(1000*br)/1000
+```
+
+Does not work.
+
+```{r}
+br <- solve(t(Xtrain) %*% Xtrain + diag(x = 24, ncol(Xtrain)), t(Xtrain) %*% (Ytrain - mean(Ytrain)))
+round(1000*br)/1000
+```
+
+With the ridge you should always define your new 'Y' as centered.
+
+
+
+
+
+
+NOT USEFUL.
+```{r}
+# The Ridge
+
+for (t in 0:10) {
+  t <-  t/10
+  ys = scale(Ytrain)
+  betaHat <- Variable(p-1)
+  objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
+  constraint <- list(sum((betaHat)^2) <=  t)
+  problem <- Problem(objective, constraint)
+  result <- solve(problem)
+
+  d <- sqrt(diag(var(Xtrain)))
+  bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+  print(round(1000*bl)/1000)
+}
+```
+
+We see that anything above t = 0.7 does not change anymore.
+Our value should be between 0.2 and 0.3
+
+```{r}
+for (t in 20:30) {
+  t <-  t/100
+  ys = scale(Ytrain)
+  betaHat <- Variable(p-1)
+  objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
+  constraint <- list(sum((betaHat)^2) <=  t)
+  problem <- Problem(objective, constraint)
+  result <- solve(problem)
+
+  d <- sqrt(diag(var(Xtrain)))
+  bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+  print(round(1000*bl)/1000)
+}
+```
+
+The result is thus between 0.25 and 0.26
+
+```{r}
+for (t in 250:260) {
+  t <-  t/1000
+  ys = scale(Ytrain)
+  betaHat <- Variable(p-1)
+  objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
+  constraint <- list(sum((betaHat)^2) <=  t)
+  problem <- Problem(objective, constraint)
+  result <- solve(problem)
+
+  d <- sqrt(diag(var(Xtrain)))
+  bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+  print(round(1000*bl)/1000)
+}
+```
+
+So it should be between .253 and .255
+
+```{r}
+t <-  0.254
+ys = scale(Ytrain)
+betaHat <- Variable(p-1)
+objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
+constraint <- list(sum((betaHat)^2) <=  t)
+problem <- Problem(objective, constraint)
+result <- solve(problem)
+
+d <- sqrt(diag(var(Xtrain)))
+bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+print(round(1000*bl)/1000)
+```
+
