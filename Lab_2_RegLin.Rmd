@@ -103,13 +103,31 @@ Exercise 2
 
 1. Reproduce Table 3.3, at least the first four columns that is LS, Best Subset, Ridge and Lasso.
 
+Let's take what we have done in the previous exercise:
+```{r}
+# The Least-Square (LS)
+data <- read.table("prostate.data.txt", sep = "") 
+data[32,2] <- 3.8044
+X <- scale(data[,1:8])
+Y <- as.matrix(data[,"lpsa"])
+
+Xtrain <- X[data[["train"]], ] 
+Ytrain <- Y[data[["train"]],]
+Xtest <- X[!data[["train"]], ] 
+Ytest <- Y[!data[["train"]], ]
+
+Xtrainone <- cbind(array(1, dim = c(nrow(Xtrain),1)), Xtrain) 
+b <- solve(t(Xtrainone) %*% Xtrainone, t(Xtrainone) %*% Ytrain)
+round(1000*b)/1000
+```
+
+Now let's try to find the same results using an appropriate package:
 ```{r}
 library(CVXR)
 ```
 
-
 ```{r}
-# check if the package works
+# Least-Square with package CVXR
 p <- 9
 betaHat <- Variable(p)
 objective <- Minimize(sum((Ytrain  - Xtrainone %*% betaHat)^2))
@@ -119,11 +137,12 @@ result <- solve(problem)
 bo <- result$getValue(betaHat)
 LS <- round(1000*bo)/1000
 LS
-round(1000*b)/1000
 ```
 
-We oberve indeed that we find the same results as previously with our "manual" method. b and bo are identical. Here with the CVXR package, the method consists of posing a problem and giving a minimization objective (here minimizing the sum of least square errors :the usual objective when building a linear regression). However this approach helps building other minimization problems like the methods we've seen in class.
+We oberve indeed that we find the same results as previously with our "manual" method. b and bo are identical. Here with the CVXR package, the method consists of posing a problem and giving a minimization objective (here minimizing the sum of least square errors :the usual objective when building a linear regression). However this approach helps building other minimization problems like the methods we have seen in class.
 We find here the first column of table 3.3 : LS (least square)
+
+Now let's use the CVRX method for retrieving the results of the Best Subset:
 
 ```{r}
 # Best Subset
@@ -139,12 +158,13 @@ BS
 BS <- rbind(BS, NA, NA, NA, NA, NA, NA)
 ```
 
+Let's do the same for LASSO:
 
 ```{r}
 # The Lasso
 p <- 9
 t <-  .7015
-ys = scale(Ytrain)
+ys = scale(Ytrain)        ### Here scaling the data does not actually change the result
 betaHat <- Variable(p-1)
 objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
 constraint <- list(sum(abs(betaHat)) <=  t)
@@ -160,13 +180,13 @@ Lasso
 
 Our result correspond indeed to the results of the Table.
 
-What have we done here?
+Finally let's do this for the Ridge:
 
 ```{r}
 # The Ridge
 p <- 9
 lambda <- 24
-ys = scale(Ytrain)
+ys = scale(Ytrain)                 ### One the opposite, here scaling changes the result.
 betaHat <- Variable(p-1)
 objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2) + lambda*sum((betaHat)^2))
 problem <- Problem(objective)
@@ -177,9 +197,11 @@ br <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
 round(1000*br)/1000
 ```
 
-Does not work.
+We observe here that our values don't correspond to the ones of the table. There must be a subtility we forget.
+Let's try to do it "manually":
 
 ```{r}
+# The Ridge (without CRVX package)
 br <- solve(t(Xtrain) %*% Xtrain + diag(x = 24, ncol(Xtrain)), t(Xtrain) %*% (Ytrain - mean(Ytrain)))
 Ridge <- round(1000*br)/1000
 Ridge <- rbind(round(1000*mean(Ytrain))/1000, Ridge)
@@ -187,6 +209,15 @@ Ridge
 ```
 
 With the ridge you should always define your new 'Y' as centered.
+
+Our result correspond indeed to the results of the Table.
+
+```{r}
+table_results <- as.table(cbind(LS, BS, Ridge, Lasso))
+rownames(table_results)[1] <- 'Intercept'
+colnames(table_results) <- c('LS', '  Best Subset', '   Ridge', '   Lasso')
+table_results
+```
 
 
 
