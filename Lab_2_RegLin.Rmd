@@ -84,6 +84,7 @@ c) Compute the standard error for each variable
 sig2 <- (t(err) %*% err)/ (nrow(Xtrainone)- ncol(X)-1) 
 v <- diag(solve(t(Xtrainone) %*% Xtrainone)) 
 stderr <- sqrt(as.vector(sig2)) * sqrt(v) 
+sqrt(sum(stderr^2))
 ```
 
 d) compute the Z score for each variable
@@ -149,13 +150,15 @@ LS
 ```
 
 We oberve indeed that we find the same results as previously with our "manual" method. b and bo are identical. Here with the CVXR package, the method consists of posing a problem and giving a minimization objective (here minimizing the sum of least square errors :the usual objective when building a linear regression). However this approach helps building other minimization problems like the methods we have seen in class.
-We find here the first column of table 3.3 : LS (least square)
+We find here the first column of Table 3.3 : LS (least square)
 
-Now let's use the CVRX method for retrieving the results of the Best Subset:
+### Now let's use the CVRX method for retrieving the results of the Best Subset:
 
 ```{r}
 # Best Subset
-p <- 3                        ### Here we just take the 3 first regressors as suggested by the Table. We will try to retrieve this result in at the end of the exercise.
+
+### Here we just take the 3 first regressors as suggested by the Table. We will try to retrieve this result in at the end of the exercise.
+p <- 3                        
 betaHat <- Variable(p)
 objective <- Minimize(sum((Ytrain  - Xtrainone[,c(1,2,3)] %*% betaHat)^2))
 problem <- Problem(objective)
@@ -164,10 +167,12 @@ result <- solve(problem)
 bo <- result$getValue(betaHat)
 BS <-round(1000*bo)/1000
 BS
-BS <- rbind(BS, NA, NA, NA, NA, NA, NA)
+BS <- rbind(BS, 0, 0, 0, 0, 0, 0)
 ```
 
-Let's do the same for Ridge:
+We obtain the same results as Table 3.3
+
+### Let's do the same for Ridge:
 
 With the ridge one has to center X and take Beta0 = mean(Y).
 
@@ -179,7 +184,7 @@ into two parts, after reparametrization using centered inputs: each xij gets
 replaced by xij−x ̄j.We estimate β0 by mean(y).The remaining coefficients get estimated by a ridge regression without intercept, using the centered xij. Henceforth we assume that this centering has been done, so that the input matrix X has p (rather than p + 1) columns.
 
 Writing the criterion in matrix form,
-RSS(λ) = (y − Xβ)T*(y − Xβ) + λβT*β, 
+RSS(λ) = (y − Xβ)T (y − Xβ) + λβT β, 
 the ridge regression solutions are easily seen to be
 βˆridge = (XT X + λI)−1XT*y
 "
@@ -187,15 +192,17 @@ the ridge regression solutions are easily seen to be
 Consequently we need to make sure that the new X is centered:
 
 ```{r}
-Xtraincentered = Xtrain - mean(Xtrain)
+Xtraincentered = Xtrain - mean(Xtrain)   ### Indeed since Xtrain is splitted after the scaling of X, it is not perfectly centered itself.
 ```
 
 ```{r}
 # The Ridge
 p <- 8
-lambda <- 24        ### Here the value of lambda is directly the one taken from the partial correction
+### Here the value of lambda is directly the one taken from the partial correction
+lambda <- 24        
 
-Ytrainscale = scale(Ytrain)   ### Here in order to find the same results as the table, we need to scale 'Y' and 'X'.
+### Here in order to find the same results as the table, we need to scale 'Y' and 'X'.
+Ytrainscale = scale(Ytrain)   
 Xtrainscale = scale(Xtrain)
 
 betaHat <- Variable(p)
@@ -203,7 +210,8 @@ objective <- Minimize(sum(((Ytrainscale-mean(Ytrainscale)) - Xtrainscale %*% bet
 problem <- Problem(objective)
 result <- solve(problem)
 
-d <- sqrt(diag(var(Xtrain)))    ### ### However, be careful here: in order to find the coefficients we divide by the standard error of the unscaled data
+### However, be careful here: in order to find the coefficients we divide by the standard error of the unscaled data
+d <- sqrt(diag(var(Xtrain)))    
 br <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
 round(1000*br)/1000
 ```
@@ -215,24 +223,29 @@ Let's try to do it "manually":
 # The Ridge (without CRVX package)
 Xtraincentered = Xtrain - mean(Xtrain)   ### Just a repetition in case the chunks are not run in order.
 
-br <- solve(t(Xtraincentered) %*% Xtraincentered + diag(x = 24, ncol(Xtraincentered)), t(Xtraincentered) %*% (Ytrain - mean(Ytrain)))                    ### Here mean(Y) is taken for Beta 0.
+### Here mean(Y) is taken for Beta 0.
+br <- solve(t(Xtraincentered) %*% Xtraincentered + diag(x = 24, ncol(Xtraincentered)), t(Xtraincentered) %*% (Ytrain - mean(Ytrain)))                    
 Ridge <- round(1000*br)/1000
+
+### Here we add Beta 0 = mean(Y) to the set of coefficients.
 Ridge <- rbind(round(1000*mean(Ytrain))/1000, Ridge)
 Ridge
 ```
 
-This time our result correspond indeed to the results of the Table.
+This time our result correspond indeed to the results of Table 3.3. (with 0.001 precision)
 
-Finally let's do this for the LASSO:
+### Finally let's do this for the LASSO:
 
 In the case of LASSO it is very often advised to scale the data.
 
 ```{r}
 # The Lasso
 p <- 8
-t <-  .7015    ### Here the value of t is directly the one taken from the partial correction
+### Here the value of t is directly the one taken from the partial correction
+t <-  .7015    
 
-Ytrainscale = scale(Ytrain)   ### Here we need to scale both Ytrain and Xtrain
+### Here we need to scale both Ytrain and Xtrain
+Ytrainscale = scale(Ytrain)   
 Xtrainscale = scale(Xtrain)
 
 betaHat <- Variable(p)
@@ -241,16 +254,21 @@ constraint <- list(sum(abs(betaHat)) <=  t)
 problem <- Problem(objective, constraint)
 result <- solve(problem)
 
-d <- sqrt(diag(var(Xtrain)))   ### However, be careful here: in order to find the coefficients we divide by the standard error of the unscaled data
+### However, be careful here: in order to find the coefficients we divide by the standard error of the unscaled data
+d <- sqrt(diag(var(Xtrain)))   
 bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
 Lasso <- round(1000*bl)/1000
-Lasso <- rbind(round(1000*mean(Ytrain))/1000, Lasso)
+
+
+### NOTA here: the Beta 0 we add is not mean(Y) this time but mean(Ypred-(Xtrain %*% bl)).
+Lasso <- rbind(round(1000*mean(Ypred-(Xtrain %*% bl)))/1000, Lasso)
 Lasso
 ```
 
+Our results correspond to the one of Table 3.3.
 
+### Let's now try to find the coefficients of the PCR:
 
-Let's now try to find the coefficients of the PCR:
 For that we download and use the appropriate package called 'pls' which includes PCR and PLS models.
 
 ```{r}
@@ -261,9 +279,8 @@ For that we download and use the appropriate package called 'pls' which includes
 library(pls)
 ```
 
-
 ```{r}
-#PCR
+# PCR
 train <- as.data.frame(cbind(Ytrain, Xtrain))
 pcr_model <- pcr(Ytrain ~ ., data = train)
 
@@ -272,16 +289,12 @@ PCR <- rbind(round(1000*mean(Ytrain))/1000, PCR)
 PCR
 ```
 
-```{r}
-pcr_model
-```
+Here we have similar results to Table 3.3 (with a difference of 0.006), so not exactly the same, but rather close.
 
-Unfortunately here I do not manage to retrieve the results from Table 3.3. Centering, scaling either one or both of X and Y but no option gives me the same results as the table.
-
-Let's now try to find the coefficients of the PLS:
+### Let's now try to find the coefficients of the PLS:
 
 ```{r}
-#PLS
+# PLS
 train <- as.data.frame(cbind(Ytrain, Xtrain))
 pls_model <- plsr(Ytrain ~ ., data = train)
 
@@ -295,9 +308,11 @@ Our result correspond indeed to the results of table 3.3.
 Let's concatenate the results together:
 
 ```{r}
+# Results summarized in a table
 table_results <- as.table(cbind(LS, BS, Ridge, Lasso, PCR, PLS))
 rownames(table_results)[1] <- 'Intercept'
 colnames(table_results) <- c('LS', '  Best Subset', '   Ridge', '   Lasso', '   PCR', '   PLS')
+#table_results[table_results == 0] <- ''
 table_results
 ```
 
@@ -311,8 +326,9 @@ REMINDER: In Xtest and Xtrain the colmuns of '1' are not included: thus the inte
 
 ```{r}
 # LS Test error
-Yhattest <- LS[-1] %*% t(Xtest) + LS[1]
-testError <- sum((Ytest - Yhattest)^2)/dim(Xtest)[1]
+Yhattest <-  Xtest %*% LS[-1] + LS[1]
+Error <- Ytest - Yhattest
+testError <- sum((Error)^2)/dim(Xtest)[1]
 testError
 ```
 This works.
@@ -320,37 +336,68 @@ This works.
 Let's now see about the std error:
 
 ```{r}
-# LS Std Error
-Yhattrain <- LS[-1] %*% t(Xtrain) + LS[1]
-trainError <- sqrt(sum((Ytrain - Yhattrain)^2))/dim(Xtrain)[1]
-trainError
+# LS Std error
+Yhattest <- Xtest %*% LS[-1] + LS[1]
+Error <- Ytest - Yhattest
+stdError <- sd((Error)^2)/sqrt(dim(Xtest)[1])
+stdError
 ```
-This does not work
+This works too.
+
+Let's now create a function that will calculate these errors for each of our models:
 
 ```{r}
 # The error calulation function
 error <- function(Model){
 
+  Yhattest <- Xtest %*% Model[-1] + Model[1]
+  Error <- Ytest - Yhattest
   # Testing error
-  Yhattest <- Model[-1] %*% t(Xtest) + Model[1]
-  testError <- sum((Ytest - Yhattest)^2)/dim(Xtest)[1]
-  # Training error
-  Yhattrain <- Model[-1] %*% t(Xtrain) + Model[1]
-  trainError <- sum((Ytrain - Yhattrain)^2)/dim(Xtrain)[1]
+  testError <- sum((Error)^2)/dim(Xtest)[1]
+  # Standard error
+  stdError <- sd((Error)^2)/sqrt(dim(Xtest)[1])
   
-  rbind(testError, trainError)
+  rbind(testError, stdError)
 }
 ```
 
 ```{r}
-error(BS)
-error(Ridge)
-error(Lasso)
-error(PCR)
-error(PLS)
+round(1000*error(LS))/1000
+round(1000*error(BS))/1000
+round(1000*error(Ridge))/1000
+round(1000*error(Lasso))/1000
+round(1000*error(PCR))/1000
+round(1000*error(PLS))/1000
 ```
 
-So far: we have smth that works 'kind of' for testError but I think our definition for std error is wrong.
+We retrieve the same results as the table. (up to a 0.001 precision, a part for Ridge where our coefficient were a bit less precise)
+
+Let's put it all in the previous Table:
+
+```{r}
+LS <- rbind(LS,round(1000*error(LS))/1000)
+BS <- rbind(BS,round(1000*error(BS))/1000)
+Ridge <- rbind(Ridge,round(1000*error(Ridge))/1000)
+Lasso <- rbind(Lasso,round(1000*error(Lasso))/1000)
+PCR <- rbind(PCR,round(1000*error(PCR))/1000)
+PLS <- rbind(PLS,round(1000*error(PLS))/1000)
+```
+
+```{r}
+# Results summarized in a Table
+table_results <- as.table(cbind(LS, BS, Ridge, Lasso, PCR, PLS))
+rownames(table_results)[1] <- 'Intercept'
+rownames(table_results)[2:9] <- rownames(Ridge)[2:9]
+rownames(table_results)[10] <- 'TestError'
+rownames(table_results)[11] <- 'StdError'
+colnames(table_results) <- c('LS', 'Best Subset', 'Ridge', 'Lasso', 'PCR', 'PLS')
+table_results[table_results == 0] <- ''
+table_results
+```
+ 
+We retrieve the same results as Table 3.3.
+
+
 
 
 
