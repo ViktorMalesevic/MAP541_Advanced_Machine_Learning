@@ -157,7 +157,7 @@ We find here the first column of Table 3.3 : LS (least square)
 ```{r}
 # Best Subset
 
-### Here we just take the 3 first regressors as suggested by the Table. We will try to retrieve this result in at the end of the exercise.
+### Here we just take the 3 first regressors as suggested by the Table. We will try to retrieve this result at the end of the exercise.
 p <- 3                        
 betaHat <- Variable(p)
 objective <- Minimize(sum((Ytrain  - Xtrainone[,c(1,2,3)] %*% betaHat)^2))
@@ -318,8 +318,7 @@ colnames(table_results) <- c('LS', '  Best Subset', '   Ridge', '   Lasso', '   
 table_results
 ```
 
-All the columns are identical to the ones from Table 3.3 (up to 0.001 precision) a part from PCR, and the intercept of LASSO. However for both Ridge and LASSO, the course tells to take Beta0 = mean(Y)... And this is what we have done here. So I do not understand why there would be a difference in the intercept for LASSO (as well as for PCR by the way).
-
+All the columns are identical to the ones from Table 3.3 (up to 0.001 precision) a part from PCR (0.006 precision).
 
 
 ### Now let's calculate the error for each of the models:
