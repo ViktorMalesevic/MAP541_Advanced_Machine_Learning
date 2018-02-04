@@ -1,11 +1,11 @@
 ---
-title: "R Notebook"
+title: "Lab 2 Linear Regression - Viktor Malesevic"
 output: html_notebook
 ---
 
-The objectives of the lab The purpose of this lab is to reproduce tables from the third chapter of the book "Elements of Statistical Learning" from Hastie, Tibshirani and Friedman, as they are shown bellow.
+The purpose of this lab is to reproduce tables from the third chapter of the book "Elements of Statistical Learning" from Hastie, Tibshirani and Friedman, as they are shown bellow.
 
-Ex. 1 — Tables 3.1 and 3.2 1. Prepare the data 
+# Ex. 1 — Tables 3.1 and 3.2 1. Prepare the data 
 
 a) Rawdataisavailableonline,downloaditfrommoodle(theData.txtﬁle)orfromthe web at http://statweb.stanford.edu/~tibs/ElemStatLearn.1stEd/datasets/ prostate.data. 
 
@@ -100,7 +100,7 @@ table32 <- cbind(b,stderr,Z)
 table32
 ```
 
-Exercise 2
+# Exercise 2
 
 1. Reproduce Table 3.3, at least the first four columns that is LS, Best Subset, Ridge and Lasso.
 
@@ -405,7 +405,7 @@ We retrieve the same results as Table 3.3. (With a 0.001 precision, and a bit le
 
 Let's see if we retrieve the Best-Subset with Backward-Stepwise selection:
 
-# Best Subset with Backward-Stepwise selection
+### Best Subset with Backward-Stepwise selection
 
 ```{r}
 #install.packages("faraway")
@@ -473,13 +473,13 @@ summary(lmod)
 
 Finally we obtain a model where only lcavol and lweight are used and are significant. And this actually corresponds to the results of Table 3.3.
 
-# NOTA here: if we use the whole dataset and not only the training dataset results are slightly different: we have lcavol, lweight but also svi.
+### NOTA here: if we use the whole dataset and not only the training dataset, results are slightly different: we obtain lcavol, lweight but also svi as significant regressors.
 
 However, the Backwise-Stepwise method does not guaranty to find the actual Best-Subset. We might be stuck in a 'local minimum'
 
 Let's then try a more 'global' method, where we ensure we do an exhaustive search of the Best-Subset:
 
-# Best Subset exhaustive search using the package 'leaps' and information criterions (AIC & BIC)
+### Best Subset exhaustive search using the package 'leaps' and information criterions (AIC & BIC)
 
 ```{r}
 #install.packages('leaps')
@@ -490,7 +490,7 @@ library(leaps)
 ```
 
 Now let's define which is the best number of variables: in general AIC or BIC are examples of method being useful in that case.
-However most of the time AIC is not 'strict' enough. This is why we will choose BIC:
+However most of the time AIC is not 'strict' enough. This is why we choose BIC:
 
 ```{r}
 # BIC
@@ -516,16 +516,20 @@ best.subset.summary$outmat
 
 Here we see indeed that if we choose two variables (decision taken thanks to BIC) lcavol and lweight are the best subset variables as displayed in Table 3.3.
 
-# NOTA here: if we use the whole dataset and not only the training dataset results are slightly different: we retrieve the results of the Backward-Stepwise method and we have lcavol, lweight but also svi.
+### NOTA here: if we use the whole dataset and not only the training dataset results are slightly different: we obtain lcavol, lweight but also svi. We actually retrieve the results of a Backward-Stepwise method applied to the whole dataset. 
 
 
 
 
-# BONUS 2: Find the optimal lambda and/or t for Ridge and Lasso:
+# BONUS 2: Find the optimal lambda and/or t for Ridge:
+
+### For Ridge
 
 We will find the lambda that minimizes the testing error for Ridge:
 
 For that we create an error function for the ridge depending on lambda:
+
+### Try to find lambda minimizing the testError
 
 ```{r}
 # Ridge error function depending on lambda
@@ -539,6 +543,8 @@ lambdaRidge <- function (lambda) {
     
     ### Here we add Beta 0 = mean(Y) to the set of coefficients.
     Ridge <- rbind(round(1000*mean(Ytrain))/1000, Ridge)
+    
+    ### And as a rsult we compute the error of the model on the testing set using the function 'error' we created earlier
     result <- round(1000*error(Ridge))/1000
 }
 ```
@@ -563,28 +569,37 @@ for (t in 0:100000) {
 ```
 
 ```{r}
+plot1 <- plot(errorvalues)
+plot1
+```
+
+```{r}
 which.min(errorvalues)
 ```
 
 The minimum is obtained thus for lambda = 14.31.
 
+
+Unfortunately the result does not correspond to the one given for Table 3.3 with Lambda = 24. But it gives indeed a lower testError and stdError than the one from Table 3.3.
+
 ```{r}
-plot1 <- plot(errorvalues)
-plot1
+l <- lambdaRidge(14.31)
+l
 ```
 
-Unfortunately the result does not correspond to the one given for Table 3.3 with Lambda = 24.
 
+### Try to find manually the t that make our results correspond to the one of Table 3.3
 
+In this part we try again a CVRX method for the Ridge but where we try to find 't' that makes our coefficients the closest possible to Table 3.3 (instead of lambda).
 
-NOT USEFUL.
 ```{r}
 # The Ridge
 
 for (t in 0:10) {
+  p = 8
   t <-  t/10
   ys = scale(Ytrain)
-  betaHat <- Variable(p-1)
+  betaHat <- Variable(p)
   objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
   constraint <- list(sum((betaHat)^2) <=  t)
   problem <- Problem(objective, constraint)
@@ -601,9 +616,10 @@ Our value should be between 0.2 and 0.3
 
 ```{r}
 for (t in 20:30) {
+  p = 8
   t <-  t/100
   ys = scale(Ytrain)
-  betaHat <- Variable(p-1)
+  betaHat <- Variable(p)
   objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
   constraint <- list(sum((betaHat)^2) <=  t)
   problem <- Problem(objective, constraint)
@@ -619,9 +635,10 @@ The result is thus between 0.25 and 0.26
 
 ```{r}
 for (t in 250:260) {
+  p = 8
   t <-  t/1000
   ys = scale(Ytrain)
-  betaHat <- Variable(p-1)
+  betaHat <- Variable(p)
   objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
   constraint <- list(sum((betaHat)^2) <=  t)
   problem <- Problem(objective, constraint)
@@ -636,9 +653,10 @@ for (t in 250:260) {
 So it should be between .253 and .255
 
 ```{r}
+p = 8
 t <-  0.254
 ys = scale(Ytrain)
-betaHat <- Variable(p-1)
+betaHat <- Variable(p)
 objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
 constraint <- list(sum((betaHat)^2) <=  t)
 problem <- Problem(objective, constraint)
@@ -649,3 +667,4 @@ bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
 print(round(1000*bl)/1000)
 ```
 
+However we see here that we do not manage to retrieve exactly the results from Table 3.3.
