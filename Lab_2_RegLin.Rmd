@@ -104,30 +104,39 @@ Exercise 2
 1. Reproduce Table 3.3, at least the first four columns that is LS, Best Subset, Ridge and Lasso.
 
 Let's take what we have done in the previous exercise:
+
 ```{r}
 # The Least-Square (LS)
 data <- read.table("prostate.data.txt", sep = "") 
 data[32,2] <- 3.8044
-X <- scale(data[,1:8])
+X <- scale(data[,1:8])                   ### So far X is scaled but Y is not.
 Y <- as.matrix(data[,"lpsa"])
 
-Xtrain <- X[data[["train"]], ] 
+Xtrain <- X[data[["train"]],]            ### The datasets extracted from X and Y are not scaled anymore.
 Ytrain <- Y[data[["train"]],]
 Xtest <- X[!data[["train"]], ] 
 Ytest <- Y[!data[["train"]], ]
 
-Xtrainone <- cbind(array(1, dim = c(nrow(Xtrain),1)), Xtrain) 
+Xtrainone <- cbind(array(1, dim = c(nrow(Xtrain),1)), Xtrain)     ### Xtrain to which we add a column of '1' to find the intercept (using the theory of linear regression & mean square error)
+
 b <- solve(t(Xtrainone) %*% Xtrainone, t(Xtrainone) %*% Ytrain)
 round(1000*b)/1000
 ```
 
 Now let's try to find the same results using an appropriate package:
+
+```{r}
+#install.packages('CVXR')
+```
+
 ```{r}
 library(CVXR)
 ```
 
 ```{r}
 # Least-Square with package CVXR
+
+### Important remark: here we use Xtrainone again since we need the column of '1' for finding the intercept with this method.
 p <- 9
 betaHat <- Variable(p)
 objective <- Minimize(sum((Ytrain  - Xtrainone %*% betaHat)^2))
@@ -146,7 +155,7 @@ Now let's use the CVRX method for retrieving the results of the Best Subset:
 
 ```{r}
 # Best Subset
-p <- 3
+p <- 3                        ### Here we just take the 3 first regressors as suggested by the Table. We will try to retrieve this result in at the end of the exercise.
 betaHat <- Variable(p)
 objective <- Minimize(sum((Ytrain  - Xtrainone[,c(1,2,3)] %*% betaHat)^2))
 problem <- Problem(objective)
@@ -158,41 +167,43 @@ BS
 BS <- rbind(BS, NA, NA, NA, NA, NA, NA)
 ```
 
-Let's do the same for LASSO:
+Let's do the same for Ridge:
+
+With the ridge one has to center X and take Beta0 = mean(Y).
+
+Extract from the book the Elements of Statistical Learning pp63-64:
+
+"The ridge solutions are not equivariant under scaling of the inputs, and so one normally standardizes the inputs before solving . In addition,notice that the intercept β0 has been left out of the penalty term. Penalization of the intercept would make the procedure depend on the origin chosen for Y ; that is, adding a constant c to each of the targets yi would
+not simply result in a shift of the predictions by the same amount c. It can be shown that the solution to can be separated
+into two parts, after reparametrization using centered inputs: each xij gets
+replaced by xij−x ̄j.We estimate β0 by mean(y).The remaining coefficients get estimated by a ridge regression without intercept, using the centered xij. Henceforth we assume that this centering has been done, so that the input matrix X has p (rather than p + 1) columns.
+
+Writing the criterion in matrix form,
+RSS(λ) = (y − Xβ)T*(y − Xβ) + λβT*β, 
+the ridge regression solutions are easily seen to be
+βˆridge = (XT X + λI)−1XT*y
+"
+
+Consequently we need to make sure that the new X is centered:
 
 ```{r}
-# The Lasso
-p <- 9
-t <-  .7015
-ys = scale(Ytrain)        ### Here scaling the data does not actually change the result
-betaHat <- Variable(p-1)
-objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2))
-constraint <- list(sum(abs(betaHat)) <=  t)
-problem <- Problem(objective, constraint)
-result <- solve(problem)
-
-d <- sqrt(diag(var(Xtrain)))
-bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
-Lasso <- round(1000*bl)/1000
-Lasso <- rbind(round(1000*mean(Ytrain))/1000, Lasso)
-Lasso
+Xtraincentered = Xtrain - mean(Xtrain)
 ```
-
-Our result correspond indeed to the results of the Table.
-
-Finally let's do this for the Ridge:
 
 ```{r}
 # The Ridge
-p <- 9
-lambda <- 24
-ys = scale(Ytrain)                 ### One the opposite, here scaling changes the result.
-betaHat <- Variable(p-1)
-objective <- Minimize(sum((ys - Xtrainscale %*% betaHat)^2) + lambda*sum((betaHat)^2))
+p <- 8
+lambda <- 24        ### Here the value of lambda is directly the one taken from the partial correction
+
+Ytrainscale = scale(Ytrain)   ### Here in order to find the same results as the table, we need to scale 'Y' and 'X'.
+Xtrainscale = scale(Xtrain)
+
+betaHat <- Variable(p)
+objective <- Minimize(sum(((Ytrainscale-mean(Ytrainscale)) - Xtrainscale %*% betaHat)^2) + lambda*sum((betaHat)^2))
 problem <- Problem(objective)
 result <- solve(problem)
 
-d <- sqrt(diag(var(Xtrain)))
+d <- sqrt(diag(var(Xtrain)))    ### ### However, be careful here: in order to find the coefficients we divide by the standard error of the unscaled data
 br <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
 round(1000*br)/1000
 ```
@@ -202,25 +213,144 @@ Let's try to do it "manually":
 
 ```{r}
 # The Ridge (without CRVX package)
-br <- solve(t(Xtrain) %*% Xtrain + diag(x = 24, ncol(Xtrain)), t(Xtrain) %*% (Ytrain - mean(Ytrain)))
+Xtraincentered = Xtrain - mean(Xtrain)   ### Just a repetition in case the chunks are not run in order.
+
+br <- solve(t(Xtraincentered) %*% Xtraincentered + diag(x = 24, ncol(Xtraincentered)), t(Xtraincentered) %*% (Ytrain - mean(Ytrain)))                    ### Here mean(Y) is taken for Beta 0.
 Ridge <- round(1000*br)/1000
 Ridge <- rbind(round(1000*mean(Ytrain))/1000, Ridge)
 Ridge
 ```
 
-With the ridge you should always define your new 'Y' as centered.
+This time our result correspond indeed to the results of the Table.
 
-Our result correspond indeed to the results of the Table.
+Finally let's do this for the LASSO:
+
+In the case of LASSO it is very often advised to scale the data.
 
 ```{r}
-table_results <- as.table(cbind(LS, BS, Ridge, Lasso))
-rownames(table_results)[1] <- 'Intercept'
-colnames(table_results) <- c('LS', '  Best Subset', '   Ridge', '   Lasso')
-table_results
+# The Lasso
+p <- 8
+t <-  .7015    ### Here the value of t is directly the one taken from the partial correction
+
+Ytrainscale = scale(Ytrain)   ### Here we need to scale both Ytrain and Xtrain
+Xtrainscale = scale(Xtrain)
+
+betaHat <- Variable(p)
+objective <- Minimize(sum((Ytrainscale - Xtrainscale %*% betaHat)^2))
+constraint <- list(sum(abs(betaHat)) <=  t)
+problem <- Problem(objective, constraint)
+result <- solve(problem)
+
+d <- sqrt(diag(var(Xtrain)))   ### However, be careful here: in order to find the coefficients we divide by the standard error of the unscaled data
+bl <- result$getValue(betaHat)*sqrt(var(Ytrain)) / d
+Lasso <- round(1000*bl)/1000
+Lasso <- rbind(round(1000*mean(Ytrain))/1000, Lasso)
+Lasso
 ```
 
 
 
+Let's now try to find the coefficients of the PCR:
+For that we download and use the appropriate package called 'pls' which includes PCR and PLS models.
+
+```{r}
+#install.packages('pls')
+```
+
+```{r}
+library(pls)
+```
+
+
+```{r}
+#PCR
+train <- as.data.frame(cbind(Ytrain, Xtrain))
+pcr_model <- pcr(Ytrain ~ ., data = train)
+
+PCR <- as.matrix(round(1000*pcr_model$coefficients[49:56])/1000)
+PCR <- rbind(round(1000*mean(Ytrain))/1000, PCR)
+PCR
+```
+
+```{r}
+pcr_model
+```
+
+Unfortunately here I do not manage to retrieve the results from Table 3.3. Centering, scaling either one or both of X and Y but no option gives me the same results as the table.
+
+Let's now try to find the coefficients of the PLS:
+
+```{r}
+#PLS
+train <- as.data.frame(cbind(Ytrain, Xtrain))
+pls_model <- plsr(Ytrain ~ ., data = train)
+
+PLS <- as.matrix(round(1000*pls_model$coefficients[9:16])/1000)
+PLS <- rbind(round(1000*mean(Ytrain))/1000, PLS)
+PLS
+```
+
+Our result correspond indeed to the results of table 3.3.
+
+Let's concatenate the results together:
+
+```{r}
+table_results <- as.table(cbind(LS, BS, Ridge, Lasso, PCR, PLS))
+rownames(table_results)[1] <- 'Intercept'
+colnames(table_results) <- c('LS', '  Best Subset', '   Ridge', '   Lasso', '   PCR', '   PLS')
+table_results
+```
+
+All the columns are identical to the ones from Table 3.3 (up to 0.001 precision) a part from PCR, and the intercept of LASSO. However for both Ridge and LASSO, the course tells to take Beta0 = mean(Y)... And this is what we have done here. So I do not understand why there would be a difference in the intercept for LASSO (as well as for PCR by the way).
+
+
+
+### Now let's calculate the error for each of the models:
+
+REMINDER: In Xtest and Xtrain the colmuns of '1' are not included: thus the intercept has to be added manually after the multiplication of Beta*X.
+
+```{r}
+# LS Test error
+Yhattest <- LS[-1] %*% t(Xtest) + LS[1]
+testError <- sum((Ytest - Yhattest)^2)/dim(Xtest)[1]
+testError
+```
+This works.
+
+Let's now see about the std error:
+
+```{r}
+# LS Std Error
+Yhattrain <- LS[-1] %*% t(Xtrain) + LS[1]
+trainError <- sqrt(sum((Ytrain - Yhattrain)^2))/dim(Xtrain)[1]
+trainError
+```
+This does not work
+
+```{r}
+# The error calulation function
+error <- function(Model){
+
+  # Testing error
+  Yhattest <- Model[-1] %*% t(Xtest) + Model[1]
+  testError <- sum((Ytest - Yhattest)^2)/dim(Xtest)[1]
+  # Training error
+  Yhattrain <- Model[-1] %*% t(Xtrain) + Model[1]
+  trainError <- sum((Ytrain - Yhattrain)^2)/dim(Xtrain)[1]
+  
+  rbind(testError, trainError)
+}
+```
+
+```{r}
+error(BS)
+error(Ridge)
+error(Lasso)
+error(PCR)
+error(PLS)
+```
+
+So far: we have smth that works 'kind of' for testError but I think our definition for std error is wrong.
 
 
 
