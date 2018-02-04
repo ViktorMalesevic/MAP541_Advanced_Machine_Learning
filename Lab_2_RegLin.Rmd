@@ -518,7 +518,64 @@ Here we see indeed that if we choose two variables (decision taken thanks to BIC
 
 # NOTA here: if we use the whole dataset and not only the training dataset results are slightly different: we retrieve the results of the Backward-Stepwise method and we have lcavol, lweight but also svi.
 
+
+
+
 # BONUS 2: Find the optimal lambda and/or t for Ridge and Lasso:
+
+We will find the lambda that minimizes the testing error for Ridge:
+
+For that we create an error function for the ridge depending on lambda:
+
+```{r}
+# Ridge error function depending on lambda
+lambdaRidge <- function (lambda) {
+    # The Ridge (without CRVX package)
+    Xtraincentered = Xtrain - mean(Xtrain)   ### Just a repetition in case the chunks are not run in order.
+    
+    ### Here mean(Y) is taken for Beta 0.
+    br <- solve(t(Xtraincentered) %*% Xtraincentered + diag(x = lambda, ncol(Xtraincentered)), t(Xtraincentered) %*% (Ytrain - mean(Ytrain)))                    
+    Ridge <- round(1000*br)/1000
+    
+    ### Here we add Beta 0 = mean(Y) to the set of coefficients.
+    Ridge <- rbind(round(1000*mean(Ytrain))/1000, Ridge)
+    result <- round(1000*error(Ridge))/1000
+}
+```
+
+Verifying if the function works:
+
+```{r}
+l <- lambdaRidge(24)
+l
+```
+
+We obtain indeed the same errors for lambda = 24
+
+Let's use that function on an interval of 0 to 100 with a 0.001 precision:
+
+```{r}
+errorvalues <- vector()
+for (t in 0:100000) {
+  t <- t/1000
+  errorvalues[t*1000] <- lambdaRidge(t) [1]
+}
+```
+
+```{r}
+which.min(errorvalues)
+```
+
+The minimum is obtained thus for lambda = 14.31.
+
+```{r}
+plot1 <- plot(errorvalues)
+plot1
+```
+
+Unfortunately the result does not correspond to the one given for Table 3.3 with Lambda = 24.
+
+
 
 NOT USEFUL.
 ```{r}
