@@ -285,7 +285,9 @@ train <- as.data.frame(cbind(Ytrain, Xtrain))
 pcr_model <- pcr(Ytrain ~ ., data = train)
 
 PCR <- as.matrix(round(1000*pcr_model$coefficients[49:56])/1000)
-PCR <- rbind(round(1000*mean(Ytrain))/1000, PCR)
+
+### NOTA here: the Beta 0 we add is not mean(Y) this time but mean(Ypred-(Xtrain %*% PCR)).
+PCR <- rbind(round(1000*mean(Ypred-(Xtrain %*% PCR)))/1000, PCR)
 PCR
 ```
 
@@ -391,15 +393,132 @@ rownames(table_results)[2:9] <- rownames(Ridge)[2:9]
 rownames(table_results)[10] <- 'TestError'
 rownames(table_results)[11] <- 'StdError'
 colnames(table_results) <- c('LS', 'Best Subset', 'Ridge', 'Lasso', 'PCR', 'PLS')
-table_results[table_results == 0] <- ''
+#table_results[table_results == 0] <- ''
 table_results
 ```
  
-We retrieve the same results as Table 3.3.
+We retrieve the same results as Table 3.3. (With a 0.001 precision, and a bit less precise for PCR)
 
 
 
+# BONUS 1: Justify the number of parameters for the Best Subset
 
+Let's see if we retrieve the Best-Subset with Backward-Stepwise selection:
+
+# Best Subset with Backward-Stepwise selection
+
+```{r}
+#install.packages("faraway")
+```
+
+```{r}
+library(faraway)
+```
+
+```{r}
+df <- as.data.frame(data[data[['train']],1:9])
+#df <- as.data.frame(data[1:9])
+```
+
+Backaward elimination example:
+
+We eliminate the regressors with the biggest p-value one by one until we only have regressors with p-values < 0.05 (except the intercept)
+
+```{r}
+lmod <- lm(lpsa ~ ., data = df)
+summary(lmod)
+```
+
+Here we eliminate gleason:
+
+```{r}
+lmod <- update(lmod,.~. - gleason)
+summary(lmod)
+```
+
+Here we eliminate age:
+
+```{r}
+lmod <- update(lmod,.~. - age)
+summary(lmod)
+```
+
+Here we eliminate lcp:
+
+```{r}
+lmod <- update(lmod,.~. - lcp)
+summary(lmod)
+```
+
+Here we eliminate pgg45:
+
+```{r}
+lmod <- update(lmod,.~. - pgg45)
+summary(lmod)
+```
+
+Here we eliminate lbph:
+
+```{r}
+lmod <- update(lmod,.~. - lbph)
+summary(lmod)
+```
+
+Here the p-value for svi is still higher than 0.05 so we eliminate it:
+
+```{r}
+lmod <- update(lmod,.~. - svi)
+summary(lmod)
+```
+
+Finally we obtain a model where only lcavol and lweight are used and are significant. And this actually corresponds to the results of Table 3.3.
+
+# NOTA here: if we use the whole dataset and not only the training dataset results are slightly different: we have lcavol, lweight but also svi.
+
+However, the Backwise-Stepwise method does not guaranty to find the actual Best-Subset. We might be stuck in a 'local minimum'
+
+Let's then try a more 'global' method, where we ensure we do an exhaustive search of the Best-Subset:
+
+# Best Subset exhaustive search using the package 'leaps' and information criterions (AIC & BIC)
+
+```{r}
+#install.packages('leaps')
+```
+
+```{r}
+library(leaps)
+```
+
+Now let's define which is the best number of variables: in general AIC or BIC are examples of method being useful in that case.
+However most of the time AIC is not 'strict' enough. This is why we will choose BIC:
+
+```{r}
+# BIC
+df <- as.data.frame(data[data[['train']],1:9])
+#df <- as.data.frame(data[1:9])
+
+best.subset <- regsubsets(lpsa~., df)
+best.subset.summary <- summary(best.subset)
+best.subset.by.bic <- which.min(best.subset.summary$bic)
+
+
+plot(best.subset.summary$bic, xlab="Number of Variables", ylab="BIC", type="l")
+points(best.subset.by.bic, best.subset.summary$bic[best.subset.by.bic], col="red", cex =2, pch =20)
+```
+
+The BIC tells us indeed that the best number of variables is 2.
+
+Now let's display the best variables to be taken per number of variables chosen to build a model:
+
+```{r}
+best.subset.summary$outmat
+```
+
+Here we see indeed that if we choose two variables (decision taken thanks to BIC) lcavol and lweight are the best subset variables as displayed in Table 3.3.
+
+# NOTA here: if we use the whole dataset and not only the training dataset results are slightly different: we retrieve the results of the Backward-Stepwise method and we have lcavol, lweight but also svi.
+
+# BONUS 2: Find the optimal lambda and/or t for Ridge and Lasso:
 
 NOT USEFUL.
 ```{r}
