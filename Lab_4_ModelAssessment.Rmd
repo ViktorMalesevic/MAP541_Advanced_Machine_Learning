@@ -1,0 +1,138 @@
+---
+title: "Lab 4 Model Assessment - Viktor Malesevic"
+output: html_notebook
+---
+
+The purpose of this lab is to reproduce figures from the chapter seven of the book "Elements of Statistical Learning" from Hastie, Tibshirani and Friedman, as they are shown below.
+
+# Ex. 1 — Computer all quantities ones
+
+1. Prepare the data
+
+a) set n = 50 data points, d = 35 variables with k = 15 non zeros. Generate a vector
+of parameters
+
+β⋆ = (1,...,1, 0,...,0 )⊤.   '1' k times & '0' d−k times 
+
+Set the number of test points to 10000.
+
+```{r}
+?rep
+```
+
+
+```{r}
+n = 50
+d = 35
+k = 15
+beta = c(rep(1,k),rep(0,d-k)) 
+nt = 10000
+```
+
+b) generate a covariance matrix C such that Cij = r|i−j|, with r = 1.2.
+
+```{r}
+Co = matrix(rep(0,d*d),d,d) 
+r = .5;
+for (a in 1:d){
+  for (b in 1:d){
+    Co[a,b] = r^abs(a-b); 
+  } 
+}
+```
+
+c) generate a training set of covariance C and a response variable using a linear model with a normal additive noise centered with a standard deviation equals to 2.5.
+
+```{r}
+X = matrix(rnorm(n*d,0,1),n,d) 
+X = X%*%chol(Co);
+e = rnorm(n,0,1);
+sig = 2.5; # noise level
+y = X%*%beta + sig*e 
+```
+
+2. Estimate and monitor the error
+
+a) if necessary, install the glmnet package, and read the user manual.
+https://www.stanford.edu/~hastie/Papers/Glmnet_Vignette.pdf
+
+```{r}
+#install.packages("glmnet", repos = "http://cran.us.r-project.org") 
+library(glmnet)
+```
+
+b) set a vector with 100 values of λ on a log scale from 0.001 to 5.
+
+```{r}
+nb_lam = 100;
+L = 10^seq(log10(0.001),log10(5),len=nb_lam)
+```
+
+c) computer the Lasso estimate for all the values of λ
+
+```{r}
+fit = glmnet(x=X, y=y, lambda=L)
+```
+
+d) set the degrees of freedom of the resulting models to a variable
+
+```{r}
+plot(fit)
+DoF = fit$df
+```
+
+e) compute and plot the training error
+
+```{r}
+yp = predict(fit,newx=X)
+Erra = colMeans((matrix(rep(y,nb_lam),n,nb_lam) - yp)^2); 
+plot(DoF,Erra,type="l", col="blue")
+```
+
+f) compute the test error
+
+```{r}
+nrt = 10000;
+Xt = matrix(rnorm(nt*d,0,1),nt,d)
+Xt = Xt%*%chol(Co);
+et = rnorm(nt,0,1);
+yt = Xt%*%beta + sig*et;
+ypt = predict(fit,newx=Xt)
+Errt = colMeans((matrix(rep(yt,nb_lam),nt,nb_lam) - ypt)^2); 
+lines(DoF,Errt)
+```
+
+g) compute the in sample generalization error
+
+```{r}
+Erri = rep(0,nb_lam) 
+for (ii in 1:nb_lam){
+  Erri[ii] = sig^2 + (t(fit$beta[,ii] - beta)%*%t(X)%*%X%*%(fit$beta[,ii] - beta))/n 
+}
+```
+
+h) computer the Cp using the real value of the variance
+
+```{r}
+sighat2 = sig^2;
+cp = Erra + 2*sighat2*DoF/n
+```
+
+i) compute the 5-fold cross validation error
+
+j) compute the bootstrap estimated error with B = 50 replication of the training set.
+Begin with computing Err_1 = 1 L(yi,fb(xi)) where C−i is the set N |C−i| −i
+i=1 b∈C
+of indices of the bootstrap samples b that do not contain observation i,
+
+```{r}
+Err_bs = 0.368*Erra + 0.632*Err_1
+```
+
+# Ex. 2 - Your turn
+
+1. By looping a part of the previous instructions, produce a figure showing the same behavior than figure 7.1 of the book for 100 training sets
+
+2. Plot the bias, the variance and the generalization error as a function of the number of degrees of freedom of the model producing a figure.
+
+3. Compare the average behavior of the generalization error, the in sample generalization error, the Cp, the 5 fold cross validation and the bootstrap 632.
