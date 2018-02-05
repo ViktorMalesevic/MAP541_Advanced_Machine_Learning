@@ -5,6 +5,11 @@ output: html_notebook
 
 The purpose of this lab is to reproduce figures from the chapter seven of the book "Elements of Statistical Learning" from Hastie, Tibshirani and Friedman, as they are shown below.
 
+```{r}
+library(ggplot2)
+```
+
+
 # Ex. 1 — Computer all quantities ones
 
 1. Prepare the data
@@ -29,7 +34,7 @@ beta = c(rep(1,k),rep(0,d-k))
 nt = 10000
 ```
 
-b) generate a covariance matrix C such that Cij = r|i−j|, with r = 1.2.
+b) generate a covariance matrix C such that Cij = r|i−j|, with r = 1/2.
 
 ```{r}
 Co = matrix(rep(0,d*d),d,d) 
@@ -45,7 +50,7 @@ c) generate a training set of covariance C and a response variable using a linea
 
 ```{r}
 X = matrix(rnorm(n*d,0,1),n,d) 
-X = X%*%chol(Co);
+X = X%*%chol(Co);     ### Choleski of covariance to have a more complex matrix than a completely random one
 e = rnorm(n,0,1);
 sig = 2.5; # noise level
 y = X%*%beta + sig*e 
@@ -78,7 +83,7 @@ d) set the degrees of freedom of the resulting models to a variable
 
 ```{r}
 plot(fit)
-DoF = fit$df
+DoF = fit$df       ### Here the degrees of freedom are the 'effective' degrees of freedom of the LASSO
 ```
 
 e) compute and plot the training error
@@ -87,19 +92,21 @@ e) compute and plot the training error
 yp = predict(fit,newx=X)
 Erra = colMeans((matrix(rep(y,nb_lam),n,nb_lam) - yp)^2); 
 plot(DoF,Erra,type="l", col="blue")
+### Nota: this changes everytime we re-run the code from beginning to here
 ```
 
 f) compute the test error
 
 ```{r}
-nrt = 10000;
+nt = 10000;
 Xt = matrix(rnorm(nt*d,0,1),nt,d)
 Xt = Xt%*%chol(Co);
-et = rnorm(nt,0,1);
+et = rnorm(nt,0,1);     ### Here if I re-run the chunk, I see that the curve does not move a lot since I have a large number of data.
 yt = Xt%*%beta + sig*et;
 ypt = predict(fit,newx=Xt)
 Errt = colMeans((matrix(rep(yt,nb_lam),nt,nb_lam) - ypt)^2); 
-lines(DoF,Errt)
+
+plot(DoF,Errt,type="l", col="red")
 ```
 
 g) compute the in sample generalization error
@@ -107,7 +114,7 @@ g) compute the in sample generalization error
 ```{r}
 Erri = rep(0,nb_lam) 
 for (ii in 1:nb_lam){
-  Erri[ii] = sig^2 + (t(fit$beta[,ii] - beta)%*%t(X)%*%X%*%(fit$beta[,ii] - beta))/n 
+  Erri[ii] = sig^2 + (t(fit$beta[,ii] - beta)%*%t(X)%*%X%*%(fit$beta[,ii] - beta))/n     ### Derived from Exercise 1: Theory
 }
 ```
 
@@ -115,10 +122,16 @@ h) computer the Cp using the real value of the variance
 
 ```{r}
 sighat2 = sig^2;
-cp = Erra + 2*sighat2*DoF/n
+cp = Erra + 2*sighat2*DoF/n          ### Derived from Exercise 2: (7.1) : Here it's a more general thing than the Cp with d. (AIC)
+plot(DoF, cp, type = 'l')
 ```
 
 i) compute the 5-fold cross validation error
+
+```{r}
+
+```
+
 
 j) compute the bootstrap estimated error with B = 50 replication of the training set.
 Begin with computing Err_1 = 1 L(yi,fb(xi)) where C−i is the set N |C−i| −i
@@ -132,6 +145,61 @@ Err_bs = 0.368*Erra + 0.632*Err_1
 # Ex. 2 - Your turn
 
 1. By looping a part of the previous instructions, produce a figure showing the same behavior than figure 7.1 of the book for 100 training sets
+
+```{r}
+n = 50
+d = 35
+k = 15
+beta = c(rep(1,k),rep(0,d-k)) 
+nt = 10000
+Co = matrix(rep(0,d*d),d,d) 
+r = .5;
+for (a in 1:d){
+  for (b in 1:d){
+    Co[a,b] = r^abs(a-b); 
+  } 
+}
+```
+
+```{r}
+sig = 2.5; # noise level
+nb_lam = 100;
+L = 10^seq(log10(0.001),log10(5),len=nb_lam)
+nt = 10000;
+plot(DoF,Erra, type = 'l', col = 'powderblue')
+Erra0 <- c()
+Errt0 <- c()
+
+for (i in 0:100) {
+  X = matrix(rnorm(n*d,0,1),n,d) 
+  X = X%*%chol(Co);     ### Choleski of covariance to have a more complex matrix than a completely random one
+  e = rnorm(n,0,1);
+  y = X%*%beta + sig*e 
+  fit = glmnet(x=X, y=y, lambda=L)
+
+  yp = predict(fit,newx=X)
+  Erra = colMeans((matrix(rep(y,nb_lam),n,nb_lam) - yp)^2); 
+  Erra0 = rbind(Erra0,Erra)
+  
+  Xt = matrix(rnorm(nt*d,0,1),nt,d)
+  Xt = Xt%*%chol(Co);
+  et = rnorm(nt,0,1);     ### Here if I re-run the chunk, I see that the curve does not move a lot since I have a large number of data.
+  yt = Xt%*%beta + sig*et;
+  ypt = predict(fit,newx=Xt)
+  
+  Errt = colMeans((matrix(rep(yt,nb_lam),nt,nb_lam) - ypt)^2);
+  Errt0 = rbind(Errt0,Errt)
+  
+  lines(DoF,Erra, type = 'l', col = "powderblue")
+  lines(DoF,Errt, type = 'l', col = "rosybrown1")
+}
+
+lines(DoF,colMeans(Erra0),type = 'l', col = "blue")
+lines(DoF,colMeans(Errt0),type = 'l', col = "red")
+
+### NOTA: sample error: re-sample in respect to X and Y. IN-sample error, we just re-sample with respect to Y.
+```
+
 
 2. Plot the bias, the variance and the generalization error as a function of the number of degrees of freedom of the model producing a figure.
 
